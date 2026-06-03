@@ -663,8 +663,8 @@ footer .wrap{ display:block; }
 
 <!-- ===================== INTRO (sign-post brand reveal) ===================== -->
 <div class="intro" id="intro" aria-hidden="true">
-  <video class="intro__video" id="introVideo" autoplay muted playsinline preload="auto" poster="">
-    <source src="assets/hero/signpost-intro.mp4" type="video/mp4" />
+  <video class="intro__video" id="introVideo" autoplay muted playsinline webkit-playsinline preload="auto" poster="">
+    <source src="assets/hero/signpost-intro.mp4" type="video/mp4" media="(min-width:761px)" />
   </video>
 </div>
 
@@ -695,16 +695,16 @@ footer .wrap{ display:block; }
   <div class="hero-bg" id="heroBg" aria-hidden="true">
     <div class="hero-slides" id="heroSlides">
       <div class="hero-slide is-active" data-i="0">
-        <video class="hero-slide__video" muted loop playsinline preload="auto" poster="assets/hero/cunos-hero-poster.jpg"><source src="assets/hero/cunos-hero.mp4" type="video/mp4" /></video>
+        <video class="hero-slide__video" muted loop playsinline webkit-playsinline preload="auto" poster="assets/hero/cunos-hero-poster.jpg"><source src="assets/hero/cunos-hero-mobile.mp4" type="video/mp4" media="(max-width:760px)" /><source src="assets/hero/cunos-hero.mp4" type="video/mp4" /></video>
       </div>
       <div class="hero-slide" data-i="1">
-        <video class="hero-slide__video" muted loop playsinline preload="metadata" poster="assets/hero/auckland-poster.jpg"><source src="assets/hero/auckland.mp4" type="video/mp4" /></video>
+        <video class="hero-slide__video" muted loop playsinline webkit-playsinline preload="none" poster="assets/hero/auckland-poster.jpg"><source src="assets/hero/auckland-mobile.mp4" type="video/mp4" media="(max-width:760px)" /><source src="assets/hero/auckland.mp4" type="video/mp4" /></video>
       </div>
       <div class="hero-slide" data-i="2">
-        <video class="hero-slide__video" muted loop playsinline preload="metadata" poster="assets/hero/berlin-poster.jpg"><source src="assets/hero/berlin.mp4" type="video/mp4" /></video>
+        <video class="hero-slide__video" muted loop playsinline webkit-playsinline preload="none" poster="assets/hero/berlin-poster.jpg"><source src="assets/hero/berlin-mobile.mp4" type="video/mp4" media="(max-width:760px)" /><source src="assets/hero/berlin.mp4" type="video/mp4" /></video>
       </div>
       <div class="hero-slide" data-i="3">
-        <video class="hero-slide__video" muted loop playsinline preload="metadata" poster="assets/hero/melbourne-poster.jpg"><source src="assets/hero/melbourne.mp4" type="video/mp4" /></video>
+        <video class="hero-slide__video" muted loop playsinline webkit-playsinline preload="none" poster="assets/hero/melbourne-poster.jpg"><source src="assets/hero/melbourne-mobile.mp4" type="video/mp4" media="(max-width:760px)" /><source src="assets/hero/melbourne.mp4" type="video/mp4" /></video>
       </div>
     </div>
     <div class="hero-bg__scrim"></div>
@@ -802,7 +802,7 @@ footer .wrap{ display:block; }
       <h2 class="disp">Local craft, <em class="em">global</em> standard.</h2>
     </div>
     <div class="worldmap reveal" id="worldmap">
-      <img src="assets/world.svg" alt="Where Digital Movement works" class="worldmap__img" />
+      <img src="assets/world.svg" alt="Where Digital Movement works" class="worldmap__img" loading="lazy" />
       <svg class="worldmap__arcs" id="worldArcs" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="worldmap__pins" id="worldPins" aria-hidden="true"></div>
     </div>
@@ -1101,23 +1101,31 @@ footer .wrap{ display:block; }
     var slides = [].slice.call(document.querySelectorAll('.hero-slide'));
     var n = items.length, idx = 0, timer = null, started = false, warmed = {};
     var FIRST_HOLD = 2200, DWELL = 4200, FADE = 1200;
+    var mob = !!(window.matchMedia && window.matchMedia('(max-width:760px)').matches);
     function vid(i){ return slides[i] ? slides[i].querySelector('video') : null; }
-    function play(i){ var v = vid(i); if(v){ var p = v.play(); if(p && p.catch){ p.catch(function(){}); } } }
+    function play(i){ var v = vid(i); if(v){ v.muted = true; v.setAttribute('muted',''); var p = v.play(); if(p && p.catch){ p.catch(function(){}); } } }
     function pause(i){ var v = vid(i); if(v){ try{ v.pause(); }catch(e){} } }
     function warm(i){ if(warmed[i]) return; var v = vid(i); if(v){ try{ v.preload='auto'; v.load(); warmed[i]=1; }catch(e){} } }
+    // iOS-reliable start of a muted inline clip (with one retry)
+    function playForce(i){ var v = vid(i); if(!v) return; v.muted = true; v.setAttribute('muted',''); v.setAttribute('autoplay',''); v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline',''); try{ if(v.preload==='none'){ v.preload='auto'; v.load(); } }catch(e){} var p = v.play(); if(p && p.catch){ p.catch(function(){ setTimeout(function(){ v.play().catch(function(){}); }, 250); }); } }
     function tick(){ go(idx + 1); schedule(DWELL); }
     function schedule(d){ if(prefersReduced || n < 2){ return; } if(timer){ clearTimeout(timer); } timer = setTimeout(tick, d); }
     function go(i){
       i = (i + n) % n; if(i === idx) return;
       var prev = idx; idx = i;
       [items, dots, slides].forEach(function(set){ if(set[prev]) set[prev].classList.remove('is-active'); if(set[idx]) set[idx].classList.add('is-active'); });
-      play(idx); warm((idx + 1) % n);
-      setTimeout(function(){ if(idx !== prev) pause(prev); }, FADE);   // free the outgoing clip after the fade
+      if(mob){ playForce(idx); }   // all clips already running — just re-assert the visible one (iOS throttles hidden video)
+      else { play(idx); warm((idx + 1) % n); setTimeout(function(){ if(idx !== prev) pause(prev); }, FADE); }
     }
     dots.forEach(function(d, i){ d.addEventListener('click', function(){ go(i); schedule(DWELL); }); });
     return {
-      warmFirst: function(){ warmed[0] = 1; play(0); },                // slide 0 decodes behind the intro
-      start: function(){ if(started) return; started = true; warmed[0] = 1; play(0); warm(1); schedule(FIRST_HOLD); }
+      warmFirst: function(){ if(!mob){ warmed[0] = 1; play(0); } },     // desktop: decode clip 0 behind the intro
+      start: function(){
+        if(started) return; started = true;
+        if(mob){ slides.forEach(function(s, i){ playForce(i); }); }      // mobile: every (tiny) clip plays → pure opacity cross-fade
+        else { warmed[0] = 1; play(0); warm(1); }
+        schedule(FIRST_HOLD);
+      }
     };
   })();
 
