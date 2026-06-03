@@ -1108,23 +1108,27 @@ footer .wrap{ display:block; }
     function warm(i){ if(warmed[i]) return; var v = vid(i); if(v){ try{ v.preload='auto'; v.load(); warmed[i]=1; }catch(e){} } }
     // iOS-reliable start of a muted inline clip (with one retry)
     function playForce(i){ var v = vid(i); if(!v) return; v.muted = true; v.setAttribute('muted',''); v.setAttribute('autoplay',''); v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline',''); try{ if(v.preload==='none'){ v.preload='auto'; v.load(); } }catch(e){} var p = v.play(); if(p && p.catch){ p.catch(function(){ setTimeout(function(){ v.play().catch(function(){}); }, 250); }); } }
-    function tick(){ go(idx + 1); schedule(DWELL); }
-    function schedule(d){ if(prefersReduced || n < 2){ return; } if(timer){ clearTimeout(timer); } timer = setTimeout(tick, d); }
+    function tick(){ try{ go(idx + 1); }catch(e){} schedule(DWELL); }   // a play error can never stop the rotation
+    function schedule(d){ if(n < 2){ return; } if(timer){ clearTimeout(timer); } timer = setTimeout(tick, d); }   /* always auto-advance (incl. reduce-motion) */
     function go(i){
       i = (i + n) % n; if(i === idx) return;
       var prev = idx; idx = i;
       [items, dots, slides].forEach(function(set){ if(set[prev]) set[prev].classList.remove('is-active'); if(set[idx]) set[idx].classList.add('is-active'); });
-      if(mob){ playForce(idx); }   // all clips already running — just re-assert the visible one (iOS throttles hidden video)
-      else { play(idx); warm((idx + 1) % n); setTimeout(function(){ if(idx !== prev) pause(prev); }, FADE); }
+      try {
+        if(mob){ playForce(idx); }   // re-assert the now-visible clip (iOS throttles hidden video)
+        else { play(idx); warm((idx + 1) % n); setTimeout(function(){ if(idx !== prev) pause(prev); }, FADE); }
+      } catch(e){}
     }
     dots.forEach(function(d, i){ d.addEventListener('click', function(){ go(i); schedule(DWELL); }); });
     return {
       warmFirst: function(){ if(!mob){ warmed[0] = 1; play(0); } },     // desktop: decode clip 0 behind the intro
       start: function(){
         if(started) return; started = true;
-        if(mob){ slides.forEach(function(s, i){ playForce(i); }); }      // mobile: every (tiny) clip plays → pure opacity cross-fade
-        else { warmed[0] = 1; play(0); warm(1); }
-        schedule(FIRST_HOLD);
+        schedule(FIRST_HOLD);   // rotation FIRST — never blocked by a playback exception
+        try {
+          if(mob){ slides.forEach(function(s, i){ try{ playForce(i); }catch(e){} }); }   // mobile: every (tiny) clip plays
+          else { warmed[0] = 1; play(0); warm(1); }
+        } catch(e){}
       }
     };
   })();
